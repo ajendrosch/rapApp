@@ -32,98 +32,85 @@
 // 'starter.controllers' is found in controllers.js
 var app = angular.module('app', ['ionic']);
 
-app.controller('FragenCtrl', function($scope, $http) {
-    $http.get('http://188.226.197.15/getFragen.php').then(function(response){
-      $scope.daten = response.data;
-      $scope.runde = 0;
-      $scope.line = $scope.daten[$scope.runde].line;
-      $scope.A = $scope.daten[$scope.runde].A;
-      $scope.B = $scope.daten[$scope.runde].B;
-      $scope.C = $scope.daten[$scope.runde].C;
-      $scope.D = $scope.daten[$scope.runde].D;
-      $scope.Erg = $scope.daten[$scope.runde].erg;
-    }, function(err) {
-    console.error('ERR', err);
-      console.log('NOT SUCCESSFUL', err);
-      $scope.A = "d";
-  })
-
-$scope.sleep = function (milliseconds) {
-  var start = new Date().getTime();
-  for (var i = 0; i < 1e7; i++) {
-    if ((new Date().getTime() - start) > milliseconds){
-      break;
+app.factory('FragenService', function($http,$q) {
+  var fragen = [];
+  return{
+    getFragen: function(){
+      var deferred = $q.defer();
+        if(fragen.length == 0){
+          $http.get("http://188.226.197.15/getFragen.php").success(function(data){
+            deferred.resolve(data);
+          });
+          return deferred.promise;
+        }else{
+          return fragen;
+        }
+     },
+    getFrage: function(runde){
+        var deferred = $q.defer();
+        var fragen = this.getFragen().then(function(fragen) {
+          deferred.resolve(fragen[runde]);
+        });
+        return deferred.promise;
     }
   }
-};
+});
 
-  $scope.nextRound = function() {
-    $scope.runde++;
-    $scope.line = $scope.daten[$scope.runde].line;
-    $scope.A = $scope.daten[$scope.runde].A;
-    $scope.B = $scope.daten[$scope.runde].B;
-    $scope.C = $scope.daten[$scope.runde].C;
-    $scope.D = $scope.daten[$scope.runde].D;
-    $scope.Erg = $scope.daten[$scope.runde].erg;
-    document.getElementById("buttonA").className = "button button-light button-block ";
-    document.getElementById("buttonB").className = "button button-light button-block ";
-    document.getElementById("buttonC").className = "button button-light button-block ";
-    document.getElementById("buttonD").className = "button button-light button-block ";
-  };
+app.factory('RundenService', function ($http, $state, $filter, $q) {
+var runde = 0;
+  return {
+    setRunde: function (rund) {
+      runde = rund;
+    },
+    getRunde: function () {
+      return runde;
+    }
+  }
+});
 
-  $scope.clickA = function() {
-    if(document.getElementById("buttonA").className = "button button-calm button-block "){
-      
-    }
-    if($scope.A == $scope.Erg){
-      document.getElementById("buttonA").className = "button button-balanced button-block ";
-    }else{
-      document.getElementById("buttonA").className = "button button-assertive button-block ";
-      if($scope.B == $scope.Erg) document.getElementById("buttonB").className = "button button-balanced button-block ";
-      if($scope.C == $scope.Erg) document.getElementById("buttonC").className = "button button-balanced button-block ";
-      if($scope.D == $scope.Erg) document.getElementById("buttonD").className = "button button-balanced button-block ";
-    }
-    
-    //$scope.nextRound();
-  };
+app.controller('FragenCtrl', function($scope, FragenService, RundenService, get_Frage, $state) {
+    // $scope.FragenArray = FragenService.getFragen();
+    // console.log('FragenArray',$scope.FragenArray);
+    $scope.Fragen = get_Frage;
+    // switch(RundenService.getRunde()){
+    //   case 0: $scope.Fragen = $scope.FragenArray[0]; break;
+    //   case 1: $scope.Fragen = $scope.FragenArray[1]; break;
+    //   //case 2: $scope.Fragen = $scope.FragenArray[2]; break;
+    //   default: $scope.Fragen = $scope.FragenArray[2];
+    // }
+    // console.log('Frage',$scope.Fragen);
 
-  $scope.clickB = function() {
-    if($scope.B == $scope.Erg){
-      document.getElementById("buttonB").className = "button button-balanced button-block ";
-    }else{
-      document.getElementById("buttonB").className = "button button-assertive button-block ";
-      if($scope.A == $scope.Erg) document.getElementById("buttonA").className = "button button-balanced button-block ";
-      if($scope.C == $scope.Erg) document.getElementById("buttonC").className = "button button-balanced button-block ";
-      if($scope.D == $scope.Erg) document.getElementById("buttonD").className = "button button-balanced button-block ";
-    }
-   // $scope.nextRound();
-  };
+  $scope.click = function(answer, button) {
+    document.getElementById(button).className = "button button-calm button-block ";
+    setTimeout(function(){
+      if(answer == $scope.Fragen.erg){
+        document.getElementById(button).className = "button button-balanced button-block ";
+      }else{
+        document.getElementById(button).className = "button button-assertive button-block ";
+        if($scope.Fragen.A == $scope.Fragen.erg) document.getElementById("buttonA").className = "button button-balanced button-block ";
+        if($scope.Fragen.B == $scope.Fragen.erg) document.getElementById("buttonB").className = "button button-balanced button-block ";
+        if($scope.Fragen.C == $scope.Fragen.erg) document.getElementById("buttonC").className = "button button-balanced button-block ";
+        if($scope.Fragen.D == $scope.Fragen.erg) document.getElementById("buttonD").className = "button button-balanced button-block ";
+      }
+      setTimeout(function(){
+        if (RundenService.getRunde() < 2){
+          RundenService.setRunde(RundenService.getRunde() + 1);
+          console.log('runde',RundenService.getRunde());
+        }        
+        RundenService.setRunde($scope.Runde);
+        document.getElementById("buttonA").className = "button button-light button-block ";
+        document.getElementById("buttonB").className = "button button-light button-block ";
+        document.getElementById("buttonC").className = "button button-light button-block ";
+        document.getElementById("buttonD").className = "button button-light button-block ";
+        //$scope.Fragen = get_Frage;
+        $state.reload();
 
-  $scope.clickC = function() {
-    if($scope.C == $scope.Erg){
-      document.getElementById("buttonC").className = "button button-balanced button-block ";
-    }else{
-      document.getElementById("buttonC").className = "button button-assertive button-block ";
-      if($scope.B == $scope.Erg) document.getElementById("buttonB").className = "button button-balanced button-block ";
-      if($scope.A == $scope.Erg) document.getElementById("buttonA").className = "button button-balanced button-block ";
-      if($scope.D == $scope.Erg) document.getElementById("buttonD").className = "button button-balanced button-block ";
-    }
-    //$scope.nextRound();
-  };
-
-  $scope.clickD = function() {
-    if($scope.D == $scope.Erg){
-      document.getElementById("buttonD").className = "button button-balanced button-block ";
-    }else{
-      document.getElementById("buttonD").className = "button button-assertive button-block ";
-      if($scope.B == $scope.Erg) document.getElementById("buttonB").className = "button button-balanced button-block ";
-      if($scope.C == $scope.Erg) document.getElementById("buttonC").className = "button button-balanced button-block ";
-      if($scope.A == $scope.Erg) document.getElementById("buttonA").className = "button button-balanced button-block ";
-    }
-   // $scope.nextRound();
+      },5000);
+    },3000);
   };
 
 });
+
 
 app.run(function($ionicPlatform) {
   $ionicPlatform.ready(function() {
@@ -150,7 +137,21 @@ app.config(function($stateProvider, $urlRouterProvider) {
     .state('page1', {
       url: '/linez',
       templateUrl: 'page1.html',
-      controller: 'FragenCtrl'
+      controller: 'FragenCtrl',
+      resolve: {
+        get_Frage: function(FragenService, RundenService, $q) {
+          var deferred = $q.defer();
+          FragenService.getFragen(RundenService.getRunde()).then(function(fragen) {
+            console.log(RundenService.getRunde(),fragen);
+            deferred.resolve(fragen);
+          });
+          //console.log('deff',deferred.promise);
+          console.log('direkt',FragenService.getFrage(2));
+          console.log('runde',RundenService.getRunde());
+          //return FragenService.getFrage(RundenService.getRunde());
+          return deferred.promise;
+        }
+      }
     })
     
     .state('page3', {
@@ -198,11 +199,11 @@ app.config(function($stateProvider, $urlRouterProvider) {
 <script id="page1.html" type="text/ng-template">
 <ion-view title="LineZ">
     <ion-content padding="true" class="has-header has-footer"> 
-          <h2>{{line}}</h2>
-          <button id="buttonA" ng-click="clickA()" class="button button-light button-block" type="submit">{{A}}</button>
-          <button id="buttonB" ng-click="clickB()" class="button button-light button-block" type="submit">{{B}}</button>
-          <button id="buttonC" ng-click="clickC()" class="button button-light button-block" type="submit">{{C}}</button>
-          <button id="buttonD" ng-click="clickD()" class="button button-light button-block" type="submit">{{D}}</button>
+          <h2>{{Fragen.line}}</h2>
+          <button id="buttonA" ng-click="click(Fragen.A, 'buttonA')" class="button button-light button-block" type="submit">{{Fragen.A}}</button>
+          <button id="buttonB" ng-click="click(Fragen.B, 'buttonB')" class="button button-light button-block" type="submit">{{Fragen.B}}</button>
+          <button id="buttonC" ng-click="click(Fragen.C, 'buttonC')" class="button button-light button-block" type="submit">{{Fragen.C}}</button>
+          <button id="buttonD" ng-click="click(Fragen.D, 'buttonD')" class="button button-light button-block" type="submit">{{Fragen.D}}</button>
     </ion-content>
 </ion-view></script>
 
