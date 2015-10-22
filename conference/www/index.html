@@ -17,6 +17,8 @@
 
     <link href="http://code.ionicframework.com/ionicons/1.5.2/css/ionicons.min.css" rel="stylesheet">
 
+    <script src="js/openfb.js"></script>
+    <script src="js/ngopenfb.js"></script>
     <!-- IF using Sass (run gulp sass first), then uncomment below and remove the CSS includes above
     <link href="css/ionic.app.css" rel="stylesheet">
     -->
@@ -30,7 +32,7 @@
 // the 2nd parameter is an array of 'requires'
 // 'starter.services' is found in services.js
 // 'starter.controllers' is found in controllers.js
-var app = angular.module('app', ['ionic']);
+var app = angular.module('app', ['ionic', 'ngOpenFB']);
 
 app.factory('FragenService', function($http,$q) {
   var fragen = [];
@@ -56,63 +58,77 @@ app.factory('FragenService', function($http,$q) {
   }
 });
 
-app.factory('RundenService', function ($http, $state, $filter, $q) {
-var runde = 0;
-  return {
-    setRunde: function (rund) {
-      runde = rund;
-    },
-    getRunde: function () {
-      return runde;
-    }
-  }
-});
 
-app.controller('FragenCtrl', function($scope, FragenService, RundenService, get_Frage, $state) {
-    // $scope.FragenArray = FragenService.getFragen();
-    // console.log('FragenArray',$scope.FragenArray);
-    $scope.Fragen = get_Frage;
-    // switch(RundenService.getRunde()){
-    //   case 0: $scope.Fragen = $scope.FragenArray[0]; break;
-    //   case 1: $scope.Fragen = $scope.FragenArray[1]; break;
-    //   //case 2: $scope.Fragen = $scope.FragenArray[2]; break;
-    //   default: $scope.Fragen = $scope.FragenArray[2];
-    // }
-    // console.log('Frage',$scope.Fragen);
+app.value('Runde', 0);
+app.value('Richtig', 0);
+app.value('Falsch', 0);
+
+
+// TODO get_Frage1..3 notwendig?
+app.controller('FragenCtrl', function($scope, Runde, Richtig, Falsch, get_Frage1, get_Frage2, get_Frage3, $state) {
+  $scope.Fragen = get_Frage1;
 
   $scope.click = function(answer, button) {
     document.getElementById(button).className = "button button-calm button-block ";
     setTimeout(function(){
       if(answer == $scope.Fragen.erg){
         document.getElementById(button).className = "button button-balanced button-block ";
+        Richtig++;
       }else{
         document.getElementById(button).className = "button button-assertive button-block ";
+        Falsch++;
         if($scope.Fragen.A == $scope.Fragen.erg) document.getElementById("buttonA").className = "button button-balanced button-block ";
         if($scope.Fragen.B == $scope.Fragen.erg) document.getElementById("buttonB").className = "button button-balanced button-block ";
         if($scope.Fragen.C == $scope.Fragen.erg) document.getElementById("buttonC").className = "button button-balanced button-block ";
         if($scope.Fragen.D == $scope.Fragen.erg) document.getElementById("buttonD").className = "button button-balanced button-block ";
       }
       setTimeout(function(){
-        if (RundenService.getRunde() < 2){
-          RundenService.setRunde(RundenService.getRunde() + 1);
-          console.log('runde',RundenService.getRunde());
+        if (Runde < 3){
+          Runde++;
+           console.log('runde in contoller',Runde);
         }        
-        RundenService.setRunde($scope.Runde);
         document.getElementById("buttonA").className = "button button-light button-block ";
         document.getElementById("buttonB").className = "button button-light button-block ";
         document.getElementById("buttonC").className = "button button-light button-block ";
         document.getElementById("buttonD").className = "button button-light button-block ";
-        //$scope.Fragen = get_Frage;
-        $state.reload();
 
-      },5000);
-    },3000);
+        if(Runde == 0) $scope.Fragen = get_Frage1;
+        if(Runde == 1) $scope.Fragen = get_Frage2;
+        if(Runde == 2) $scope.Fragen = get_Frage3;
+
+        if (Runde < 3){
+          $state.reload();
+        }else{
+          var score = angular.toJson({"Richtig":Richtig, "Falsch": Falsch});
+          $state.go('page6', {'score':score});
+        }
+      },2000);
+    },1000);
   };
 
 });
 
+app.controller('LoginCtrl', function($scope, $stateParams, $state, ngFB) {
+  $scope.fbLogin = function () {
+    ngFB.login({scope: 'email, public_profile, user_friends'}).then(
+      function (response) {
+          if (response.status === 'connected') {
+              console.log('Facebook login succeeded');
+              //$scope.closeLogin();
+          } else {
+              alert('Facebook login failed');
+          }
+      });
+  };
+});
 
-app.run(function($ionicPlatform) {
+app.controller('ScoreCtrl', function($scope, $stateParams, $state) {
+  $scope.score = angular.fromJson($stateParams.score);
+  //console.log("d",score['Falsch']);
+});
+
+app.run(function($ionicPlatform, ngFB) {
+  ngFB.init({appId: '512645572234640'});
   $ionicPlatform.ready(function() {
     // Hide the accessory bar by default (remove this to show the accessory bar above the keyboard
     // for form inputs)
@@ -124,6 +140,19 @@ app.run(function($ionicPlatform) {
       StatusBar.styleDefault();
     }
   });
+})
+
+app.controller('ProfileCtrl', function ($scope, ngFB) {
+    ngFB.api({
+        path: '/me',
+        params: {fields: 'id,name,age_range,link,gender,locale,timezone,friends'}
+    }).then(
+        function (user) {
+            $scope.user = user;
+        },
+        function (error) {
+            alert('Facebook error: ' + error.error_description);
+        });
 })
 
 app.config(function($stateProvider, $urlRouterProvider) {
@@ -139,16 +168,25 @@ app.config(function($stateProvider, $urlRouterProvider) {
       templateUrl: 'page1.html',
       controller: 'FragenCtrl',
       resolve: {
-        get_Frage: function(FragenService, RundenService, $q) {
+        get_Frage1: function(FragenService, $q) {
           var deferred = $q.defer();
-          FragenService.getFragen(RundenService.getRunde()).then(function(fragen) {
-            console.log(RundenService.getRunde(),fragen);
+          FragenService.getFrage(0).then(function(fragen) {
             deferred.resolve(fragen);
           });
-          //console.log('deff',deferred.promise);
-          console.log('direkt',FragenService.getFrage(2));
-          console.log('runde',RundenService.getRunde());
-          //return FragenService.getFrage(RundenService.getRunde());
+          return deferred.promise;
+        },
+        get_Frage2: function(FragenService, $q) {
+          var deferred = $q.defer();
+          FragenService.getFrage(1).then(function(fragen) {
+            deferred.resolve(fragen);
+          });
+          return deferred.promise;
+        },
+        get_Frage3: function(FragenService, $q) {
+          var deferred = $q.defer();
+          FragenService.getFrage(2).then(function(fragen) {
+            deferred.resolve(fragen);
+          });
           return deferred.promise;
         }
       }
@@ -156,7 +194,8 @@ app.config(function($stateProvider, $urlRouterProvider) {
     
     .state('page3', {
       url: '/login',
-      templateUrl: 'page3.html'
+      templateUrl: 'page3.html',
+      controller: 'LoginCtrl'
     })
     
     .state('page4', {
@@ -166,12 +205,14 @@ app.config(function($stateProvider, $urlRouterProvider) {
     
     .state('page5', {
       url: '/page5',
-      templateUrl: 'page5.html'
+      templateUrl: 'page5.html',
+      controller: 'ProfileCtrl'
     })
     
     .state('page6', {
-      url: '/page6',
-      templateUrl: 'page6.html'
+      url: '/page6?score',
+      templateUrl: 'page6.html',
+      controller: 'ScoreCtrl'
     })
     ;
 
@@ -216,7 +257,7 @@ app.config(function($stateProvider, $urlRouterProvider) {
             <ion-list>
                 <label class="item item-input">
                     <span class="input-label">Username</span>
-                    <input type="text" placeholder=""
+                    <input type="text" placeholder="">
                 </label>
                 <label class="item item-input">
                     <span class="input-label">Password</span>
@@ -227,7 +268,7 @@ app.config(function($stateProvider, $urlRouterProvider) {
             <a href="#/page5" class="button button-light button-block ">Login</a>
             <a href="#/signup" class="button button-positive button-clear button-block ">Neuen Account erstellen</a>
             <div class="spacer" style="width: 300px; height: 127px;"></div>
-            <a href="#/page5" class="button button-positive button-block ">Mit Facebook verbinden</a>
+            <a href="#/page5" class="button button-positive button-block" ng-click="fbLogin()" >Mit Facebook verbinden</a>
         </form>
     </ion-content>
 </ion-view></script>
@@ -245,12 +286,15 @@ app.config(function($stateProvider, $urlRouterProvider) {
 <script id="page5.html" type="text/ng-template">
 <ion-view title="Page">
     <ion-content padding="true" class="has-header">
+        <div class="item">
+                <h2>{{user.name}}</h2>
+                <p>{{user.friends}}</p>
+            </div>
+            <div class="item item-body">
+                <img src="http://graph.facebook.com/{{user.id}}/picture?width=270&height=270"/>
+            </div>
         <h1>Gegner</h1>
-        <ion-list>
-            <ion-item href="#/linez">Freund 1</ion-item>
-            <ion-item>Freund 2</ion-item>
-            <ion-item href="#/linez">Freund 3</ion-item>
-        </ion-list>
+        
         <div class="spacer" style="height: 100px;"></div>
         <a href="#/linez" class="button button-stable button-block ">Zufälliger Gegner</a>
     </ion-content>
@@ -262,7 +306,7 @@ app.config(function($stateProvider, $urlRouterProvider) {
     <ion-content padding="true" class="has-header">
         <div class="list card">
             <div class="item item-divider">You</div>
-            <div class="item item-body"></div>
+            <div class="item item-body">Richtig: {{score['Richtig']}}<br>Falsch: {{score['Falsch']}}</div>
         </div>
         <div class="spacer" style="width: 300px; height: 106px;"></div>
         <div class="list card">
