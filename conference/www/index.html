@@ -142,7 +142,7 @@ app.run(function($ionicPlatform, ngFB) {
   });
 })
 
-app.controller('ProfileCtrl', function ($scope, ngFB, $http) {
+app.controller('ProfileCtrl', function ($scope, ngFB, $http,$q) {
     ngFB.api({
         path: '/me',
         params: {fields: 'id,name,age_range,link,gender,locale,timezone,friends'}
@@ -151,6 +151,9 @@ app.controller('ProfileCtrl', function ($scope, ngFB, $http) {
             $scope.user = user;
             $scope.register(user.id, user.name);
             //console.log($scope.userData);
+            $scope.openGames(10);//<====================================================??????///???/?/?//?
+
+            
         },
         function (error) {
             alert('Facebook error: ' + error.error_description);
@@ -165,6 +168,21 @@ app.controller('ProfileCtrl', function ($scope, ngFB, $http) {
               $scope.userData = data;
             })
             .error(function (data, status, header, config) {
+              console.log("ERROR");
+            });
+    };
+
+    $scope.openGames = function (id){
+      var data = {'ID': id};
+      console.log(data);
+      var config = {headers : {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8;'}};
+      
+      $http.post("http://188.226.197.15/getopengames.php", data, config)
+            .success(function (data) {
+              $scope.openGames = data;
+              console.log(data);
+            })
+            .error(function (data) {
               console.log("ERROR");
             });
     };
@@ -321,6 +339,16 @@ app.config(function($stateProvider, $urlRouterProvider) {
                 <h2>{{user.name}}</h2>
                 <img src="http://graph.facebook.com/{{user.id}}/picture?width=100&height=100"/>
             </div>
+
+            <h1>Offene Spiele</h1>
+          <div class="list">
+          <div collection-repeat="openGame in openGames">
+
+            <button id="" ng-click="" class="button button-light button-block" type="submit">{{openGame.ID}}</button>
+            
+          </div>
+        </div>
+
         <h1>Gegner</h1>
         <div class="list">
           <div collection-repeat="friend in user.friends['data']">
