@@ -152,11 +152,10 @@ app.controller('ProfileCtrl', function ($scope, ngFB, $http,$q) {
             $scope.register(user.id, user.name).then(function(data){
               $scope.userData = data;
               console.log("userData",$scope.userData);
-              $scope.openGames($scope.userData.ID);
-            });
-            
-            //console.log($scope.userData);
-            //<====================================================??????///???/?/?//?
+              $scope.openGames($scope.userData.ID);//.then(function(data){
+                //scope.gamesData = data;
+              //});
+            //});
 
             
         },
@@ -177,22 +176,24 @@ app.controller('ProfileCtrl', function ($scope, ngFB, $http,$q) {
             .error(function (data, status, header, config) {
               console.log("ERROR");
             });
-        return deferred.promise;
+      return deferred.promise;
     };
 
     $scope.openGames = function (id){
+      //var deferred = $q.defer();
       var data = {'ID': id};
-      console.log(data);
       var config = {headers : {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8;'}};
       
       $http.post("http://188.226.197.15/getopengames.php", data, config)
             .success(function (data) {
-              $scope.openGames = data;
-              console.log("openGames",data);
+              $scope.openGams = data;
+              //console.log("openGames",data);
+             // deferred.resolve(data);
             })
             .error(function (data) {
               console.log("ERROR");
             });
+      //return deferred.promise;
     };
 
     $scope.anfrageSchicken = function (id, gegnerId){
@@ -209,6 +210,22 @@ app.controller('ProfileCtrl', function ($scope, ngFB, $http,$q) {
               console.log("ERROR");
             });
     };
+});
+
+app.controller('StartCtrl', function ($scope, $http, $q) {
+  $scope.startGame = function(Game){
+    var data = {'id1': Game.Frage1, 'id2': Game.Frage2, 'id3': Game.Frage3};
+    var config = {headers : {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8;'}};
+
+    $http.post("http://188.226.197.15/getFragen.php", data, config)
+            .success(function (data, status, headers, config) {
+              $scope.Fragen = data;
+              console.log(data);
+            })
+            .error(function (data, status, header, config) {
+              console.log("ERROR");
+            });
+  };
 });
 
 app.config(function($stateProvider, $urlRouterProvider) {
@@ -269,6 +286,12 @@ app.config(function($stateProvider, $urlRouterProvider) {
       url: '/page6?score',
       templateUrl: 'page6.html',
       controller: 'ScoreCtrl'
+    })
+
+    .state('page7', {
+      url: '/page7',
+      templateUrl: 'page7.html',
+      controller: 'StartCtrl'
     })
     ;
 
@@ -350,9 +373,9 @@ app.config(function($stateProvider, $urlRouterProvider) {
 
             <h1>Offene Spiele</h1>
           <div class="list">
-          <div collection-repeat="openGame in openGames">
+          <div collection-repeat="openGame in openGams">
 
-            <button id="" ng-click="" class="button button-light button-block" type="submit">{{openGame.ID}}</button>
+            <a href="#/page7" id="openGame.Name" ng-click="startGame(openGame)" class="button button-light button-block" type="submit">{{openGame.Name}}</a>
             
           </div>
         </div>
@@ -384,6 +407,20 @@ app.config(function($stateProvider, $urlRouterProvider) {
         <div class="list card">
             <div class="item item-divider">You</div>
             <div class="item item-body">Richtig: {{score['Richtig']}}<br>Falsch: {{score['Falsch']}}</div>
+        </div>
+        <div class="spacer" style="width: 300px; height: 106px;"></div>
+        <div class="list card">
+            <div class="item item-divider">Card</div>
+            <div class="item item-body"></div>
+        </div>
+    </ion-content>
+</ion-view></script>
+
+<script id="page7.html" type="text/ng-template">
+<ion-view title="Page">
+    <ion-content padding="true" class="has-header">
+        <div class="list card">
+        {{Fragen.Frage}}
         </div>
         <div class="spacer" style="width: 300px; height: 106px;"></div>
         <div class="list card">
