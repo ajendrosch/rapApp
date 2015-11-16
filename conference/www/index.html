@@ -34,35 +34,52 @@
 // 'starter.controllers' is found in controllers.js
 var app = angular.module('app', ['ionic', 'ngOpenFB']);
 
-app.factory('FragenService', function($http,$q) {
-  var fragen = [];
-  return{
-    getFragen: function(){
-      var deferred = $q.defer();
-        if(fragen.length == 0){
-          $http.get("http://188.226.197.15/getFragen.php").success(function(data){
-            deferred.resolve(data);
-          });
-          return deferred.promise;
-        }else{
-          return fragen;
-        }
-     },
-    getFrage: function(runde){
-        var deferred = $q.defer();
-        var fragen = this.getFragen().then(function(fragen) {
-          deferred.resolve(fragen[runde]);
-        });
-        return deferred.promise;
-    }
-  }
-});
+// app.factory('FragenService', function($http,$q) {
+//   var fragen = [];
+//   return{
+//     getFragen: function(){
+//       var deferred = $q.defer();
+//         if(fragen.length == 0){
+//           $http.get("http://188.226.197.15/getFragen.php").success(function(data){
+//             deferred.resolve(data);
+//           });
+//           return deferred.promise;
+//         }else{
+//           return fragen;
+//         }
+//      },
+//     getFrage: function(runde){
+//         var deferred = $q.defer();
+//         var fragen = this.getFragen().then(function(fragen) {
+//           deferred.resolve(fragen[runde]);
+//         });
+//         return deferred.promise;
+//     }
+//   }
+// });
 
+app.service('FragenService', function($http, $q) {
+            var deferred = $q.defer();
+            var data = {'id1': Game.Frage1, 'id2': Game.Frage2, 'id3': Game.Frage3};
+            var config = {headers : {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8;'}};
+
+            $http.post("http://188.226.197.15/getFragen.php", data, config)
+                    .success(function (data, status, headers, config) {
+                      deferred.resolve(data);
+                    })
+                    .error(function (data, status, header, config) {
+                      console.log("ERROR");
+                    });
+            this.getFragen = function (){
+              return deferred.promise;
+            }
+});
 
 app.value('Runde', 0);
 app.value('Richtig', 0);
 app.value('Falsch', 0);
 
+app.value('Game', null);
 
 // TODO get_Frage1..3 notwendig?
 app.controller('FragenCtrl', function($scope, Runde, Richtig, Falsch, get_Frage1, get_Frage2, get_Frage3, $state) {
@@ -113,8 +130,7 @@ app.controller('LoginCtrl', function($scope, $stateParams, $state, ngFB) {
     ngFB.login({scope: 'email, public_profile, user_friends'}).then(
       function (response) {
           if (response.status === 'connected') {
-              console.log('Facebook login succeeded');
-              //$scope.closeLogin();
+              console.log('Facebook login succeeded', response);
           } else {
               alert('Facebook login failed');
           }
@@ -140,22 +156,23 @@ app.run(function($ionicPlatform, ngFB) {
       StatusBar.styleDefault();
     }
   });
-})
+});
 
-app.controller('ProfileCtrl', function ($scope, ngFB, $http,$q) {
+ app.controller('ProfileCtrl', function ($scope, ngFB, $http, $q, Game) {
     ngFB.api({
         path: '/me',
         params: {fields: 'id,name,age_range,link,gender,locale,timezone,friends'}
     }).then(
         function (user) {
             $scope.user = user;
+
             $scope.register(user.id, user.name).then(function(data){
               $scope.userData = data;
               console.log("userData",$scope.userData);
-              $scope.openGames($scope.userData.ID);//.then(function(data){
-                //scope.gamesData = data;
-              //});
-            //});
+              $scope.openGames($scope.userData.ID).then(function(data){
+                $scope.gamesData = data;
+              });
+            });
 
             
         },
@@ -171,6 +188,7 @@ app.controller('ProfileCtrl', function ($scope, ngFB, $http,$q) {
       $http.post("http://188.226.197.15/user.php", data, config)
             .success(function (data, status, headers, config) {
              // $scope.userData = data;
+             console.log("register",data);
              deferred.resolve(data);
             })
             .error(function (data, status, header, config) {
@@ -180,20 +198,20 @@ app.controller('ProfileCtrl', function ($scope, ngFB, $http,$q) {
     };
 
     $scope.openGames = function (id){
-      //var deferred = $q.defer();
+      var deferred = $q.defer();
       var data = {'ID': id};
       var config = {headers : {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8;'}};
       
       $http.post("http://188.226.197.15/getopengames.php", data, config)
             .success(function (data) {
-              $scope.openGams = data;
-              //console.log("openGames",data);
-             // deferred.resolve(data);
+              //$scope.openGams = data;
+              console.log("openGames",data);
+              deferred.resolve(data);
             })
             .error(function (data) {
               console.log("ERROR");
             });
-      //return deferred.promise;
+      return deferred.promise;
     };
 
     $scope.anfrageSchicken = function (id, gegnerId){
@@ -210,22 +228,31 @@ app.controller('ProfileCtrl', function ($scope, ngFB, $http,$q) {
               console.log("ERROR");
             });
     };
-});
 
-app.controller('StartCtrl', function ($scope, $http, $q) {
-  $scope.startGame = function(Game){
-    var data = {'id1': Game.Frage1, 'id2': Game.Frage2, 'id3': Game.Frage3};
-    var config = {headers : {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8;'}};
+    // $scope.startGame = function(Game){
+    //   var data = {'id1': Game.Frage1, 'id2': Game.Frage2, 'id3': Game.Frage3};
+    //   var config = {headers : {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8;'}};
 
-    $http.post("http://188.226.197.15/getFragen.php", data, config)
-            .success(function (data, status, headers, config) {
-              $scope.Fragen = data;
-              console.log(data);
-            })
-            .error(function (data, status, header, config) {
-              console.log("ERROR");
-            });
-  };
+    //   $http.post("http://188.226.197.15/getFragen.php", data, config)
+    //           .success(function (data, status, headers, config) {
+    //             Fragen = data;
+    //             console.log("Diese",Fragen);
+    //           })
+    //           .error(function (data, status, header, config) {
+    //             console.log("ERROR");
+    //           });
+    // };
+
+    $scope.setGame = function(openGame){
+      Game = openGame;
+      console.log(Game);
+      window.location.href = "#/page7";
+    };
+  });
+
+app.controller('StartCtrl', function ($scope, $http, $q, FICKDICH) {
+  $scope.Fragen = FICKDICH;
+  console.log("FEE", $scope.Fragen);
 });
 
 app.config(function($stateProvider, $urlRouterProvider) {
@@ -243,21 +270,21 @@ app.config(function($stateProvider, $urlRouterProvider) {
       resolve: {
         get_Frage1: function(FragenService, $q) {
           var deferred = $q.defer();
-          FragenService.getFrage(0).then(function(fragen) {
+          FragenService.getFrage(0).then(function (fragen) {
             deferred.resolve(fragen);
           });
           return deferred.promise;
         },
         get_Frage2: function(FragenService, $q) {
           var deferred = $q.defer();
-          FragenService.getFrage(1).then(function(fragen) {
+          FragenService.getFrage(1).then(function (fragen) {
             deferred.resolve(fragen);
           });
           return deferred.promise;
         },
         get_Frage3: function(FragenService, $q) {
           var deferred = $q.defer();
-          FragenService.getFrage(2).then(function(fragen) {
+          FragenService.getFrage(2).then(function (fragen) {
             deferred.resolve(fragen);
           });
           return deferred.promise;
@@ -291,7 +318,17 @@ app.config(function($stateProvider, $urlRouterProvider) {
     .state('page7', {
       url: '/page7',
       templateUrl: 'page7.html',
-      controller: 'StartCtrl'
+      controller: 'StartCtrl',
+      resolve: {
+        FICKDICH: function(FragenService, Game, $q){
+          var deferred = $q.defer();
+          console.log(Game);
+           FragenService.getFragen(Game).then(function (data){
+              deferred.resolve(data);
+           });
+           return deferred.promise;
+        }
+      }
     })
     ;
 
@@ -373,9 +410,9 @@ app.config(function($stateProvider, $urlRouterProvider) {
 
             <h1>Offene Spiele</h1>
           <div class="list">
-          <div collection-repeat="openGame in openGams">
+          <div ng-repeat="openGame in gamesData">
 
-            <a href="#/page7" id="openGame.Name" ng-click="startGame(openGame)" class="button button-light button-block" type="submit">{{openGame.Name}}</a>
+            <a id="{{openGame.Name}}" ng-click="setGame(openGame)" class="button button-light button-block" type="submit">{{openGame.Name}}</a>
             
           </div>
         </div>
@@ -420,7 +457,7 @@ app.config(function($stateProvider, $urlRouterProvider) {
 <ion-view title="Page">
     <ion-content padding="true" class="has-header">
         <div class="list card">
-        {{Fragen.Frage}}
+        {{Fragen.Frage1}}
         </div>
         <div class="spacer" style="width: 300px; height: 106px;"></div>
         <div class="list card">
