@@ -58,21 +58,37 @@ var app = angular.module('app', ['ionic', 'ngOpenFB']);
 //   }
 // });
 
-app.service('FragenService', function($http, $q) {
-            var deferred = $q.defer();
-            var data = {'id1': Game.Frage1, 'id2': Game.Frage2, 'id3': Game.Frage3};
-            var config = {headers : {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8;'}};
+app.factory('FragenService', function ($http, $q) {
+            var saved = [];
 
-            $http.post("http://188.226.197.15/getFragen.php", data, config)
-                    .success(function (data, status, headers, config) {
-                      deferred.resolve(data);
-                    })
-                    .error(function (data, status, header, config) {
-                      console.log("ERROR");
-                    });
-            this.getFragen = function (){
-              return deferred.promise;
+            getFragen = function (game){
+              var deferred = $q.defer();
+              var data = {'id1': game.Frage1, 'id2': game.Frage2, 'id3': game.Frage3};
+              var config = {headers : {'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8;'}};
+
+              $http.post("http://188.226.197.15/getFragen.php", data, config)
+                      .success(function (data, status, headers, config) {
+                        deferred.resolve(data);
+                        //console.log(data);
+                        //ret.push(data);
+                      })
+                      .error(function (data, status, header, config) {
+                        console.log("ERROR");
+                      });
+              
+                return deferred.promise;
             }
+            
+            return {
+              saveFragen: function(game){
+                saved.push(game);
+                saved.push(getFragen(game));
+                //console.log("saveFrage",saved);
+              },
+              getValues: function(){
+                return saved;
+              }
+          }
 });
 
 app.value('Runde', 0);
@@ -80,6 +96,7 @@ app.value('Richtig', 0);
 app.value('Falsch', 0);
 
 app.value('Game', null);
+app.value('Fragen', null);
 
 // TODO get_Frage1..3 notwendig?
 app.controller('FragenCtrl', function($scope, Runde, Richtig, Falsch, get_Frage1, get_Frage2, get_Frage3, $state) {
@@ -158,7 +175,7 @@ app.run(function($ionicPlatform, ngFB) {
   });
 });
 
- app.controller('ProfileCtrl', function ($scope, ngFB, $http, $q, Game) {
+ app.controller('ProfileCtrl', function ($scope, ngFB, $http, $q, Game, FragenService) {
     ngFB.api({
         path: '/me',
         params: {fields: 'id,name,age_range,link,gender,locale,timezone,friends'}
@@ -235,8 +252,8 @@ app.run(function($ionicPlatform, ngFB) {
 
     //   $http.post("http://188.226.197.15/getFragen.php", data, config)
     //           .success(function (data, status, headers, config) {
-    //             Fragen = data;
-    //             console.log("Diese",Fragen);
+    //             GameFragen = data;
+    //             console.log("GameFragen", GameFragen);
     //           })
     //           .error(function (data, status, header, config) {
     //             console.log("ERROR");
@@ -246,13 +263,24 @@ app.run(function($ionicPlatform, ngFB) {
     $scope.setGame = function(openGame){
       Game = openGame;
       console.log(Game);
-      window.location.href = "#/page7";
+      FragenService.saveFragen(Game);
+      console.log("fragen saved");
+      //$scope.startGame(openGame);
+      //console.log(FragenService.obj);
+
+      //window.location.href = "#/page7";
     };
   });
 
-app.controller('StartCtrl', function ($scope, $http, $q, FICKDICH) {
-  $scope.Fragen = FICKDICH;
-  console.log("FEE", $scope.Fragen);
+app.controller('StartCtrl', function ($scope, Game, FragenService) {
+
+  //$scope.Fragen = FICKDICH;
+  //console.log("FEE", $scope.Fragen);
+
+  $scope.logScope = function (){
+    console.log("saved", FragenService.getValues());
+    //console.log("Game", Game);
+  };
 });
 
 app.config(function($stateProvider, $urlRouterProvider) {
@@ -319,16 +347,15 @@ app.config(function($stateProvider, $urlRouterProvider) {
       url: '/page7',
       templateUrl: 'page7.html',
       controller: 'StartCtrl',
-      resolve: {
-        FICKDICH: function(FragenService, Game, $q){
-          var deferred = $q.defer();
-          console.log(Game);
-           FragenService.getFragen(Game).then(function (data){
-              deferred.resolve(data);
-           });
-           return deferred.promise;
-        }
-      }
+      // resolve: {
+      //   FICKDICH: function(FragenService, $q){
+      //     var deferred = $q.defer();
+      //      FragenService.getFragen().then(function (data){
+      //         deferred.resolve(data);
+      //      });
+      //      return deferred.promise;
+      //   }
+      // }
     })
     ;
 
@@ -405,23 +432,22 @@ app.config(function($stateProvider, $urlRouterProvider) {
         <div class="item">
                 
                 <h2>{{user.name}}</h2>
-                <img src="http://graph.facebook.com/{{user.id}}/picture?width=100&height=100"/>
+                <img ng-src="http://graph.facebook.com/{{user.id}}/picture?width=100&height=100"/>
             </div>
 
             <h1>Offene Spiele</h1>
           <div class="list">
           <div ng-repeat="openGame in gamesData">
 
-            <a id="{{openGame.Name}}" ng-click="setGame(openGame)" class="button button-light button-block" type="submit">{{openGame.Name}}</a>
+            <a href="#/page7" id="{{openGame.Name}}" ng-click="setGame(openGame)" class="button button-light button-block">{{openGame.Name}}</a>
             
           </div>
         </div>
-
         <h1>Gegner</h1>
         <div class="list">
           <div collection-repeat="friend in user.friends['data']">
 
-            <button id="{{friend.id}}" ng-click="anfrageSchicken(userData.ID, friend.id)" class="button button-light button-block" type="submit"><img src="http://graph.facebook.com/{{friend.id}}/picture?width=100&height=100"/>{{friend.name}}</button>
+            <button id="{{friend.id}}" ng-click="anfrageSchicken(userData.ID, friend.id)" class="button button-light button-block" type="submit"><img ng-src="http://graph.facebook.com/{{friend.id}}/picture?width=100&height=100"/>{{friend.name}}</button>
             
           </div>
         </div>
@@ -457,12 +483,13 @@ app.config(function($stateProvider, $urlRouterProvider) {
 <ion-view title="Page">
     <ion-content padding="true" class="has-header">
         <div class="list card">
-        {{Fragen.Frage1}}
+        <div ng-bind="Fragen.Frage1"></div>
         </div>
         <div class="spacer" style="width: 300px; height: 106px;"></div>
         <div class="list card">
             <div class="item item-divider">Card</div>
             <div class="item item-body"></div>
+            <div class="button button-stable button-block" ng-click="logScope()">Log</div>
         </div>
     </ion-content>
 </ion-view></script>
